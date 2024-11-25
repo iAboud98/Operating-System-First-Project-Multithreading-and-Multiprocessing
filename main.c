@@ -14,12 +14,22 @@
 #define ARRAY_SIZE 17005210
 #define UNIQUE_ARRAY_SIZE 255000
 
+pthread_mutex_t lock;
+
 typedef struct Node{
 
     char word[MAX_WORD_LENGTH];
     int occurrences;
 
 }Node;
+
+typedef struct ThreadArgs {
+    Node *array;
+    int start;
+    int end;
+    Node *new_array;
+    int *new_array_size;
+} ThreadArgs;
 
 int exist_in_array(Node* array,int size, char word[]){
     for(int i=0;i<size;i++){
@@ -67,6 +77,57 @@ void count_occurrences_multiprocessing(Node *array, Node *final_array, sem_t *lo
     }
 }
 
+void *count_occurrences_thread(void *arg) {
+
+    ThreadArgs *args = (ThreadArgs *)arg;
+    Node *local_new_array = args->new_array;
+    int *local_new_array_size = args->new_array_size;
+
+
+    for (int i = args->start; i < args->end; i++) {
+        int index = exist_in_array(local_new_array, *local_new_array_size, args->array[i].word);
+        pthread_mutex_lock(&lock);
+        if (index != -1) {
+            local_new_array[index].occurrences++;
+        } else {
+            strcpy(local_new_array[*local_new_array_size].word, args->array[i].word);
+            local_new_array[*local_new_array_size].occurrences = 1;
+            (*local_new_array_size)++;
+        }
+        pthread_mutex_unlock(&lock);
+    }
+
+    return NULL;
+}
+
+Node* count_occurrences_multithreading(Node *array, int num_of_threads) {
+    Node *new_array = (Node *)malloc(UNIQUE_ARRAY_SIZE * sizeof(Node));
+    int new_array_size = 0;
+
+    pthread_t threads[num_of_threads];
+    ThreadArgs thread_args[num_of_threads];
+    int chunk_size = ARRAY_SIZE / num_of_threads;
+
+    for (int i = 0; i < num_of_threads; i++) {
+        thread_args[i].array = array;
+        thread_args[i].start = i * chunk_size;
+        thread_args[i].end = (i == num_of_threads - 1) ? ARRAY_SIZE : (i + 1) * chunk_size;
+        thread_args[i].new_array = new_array;
+        thread_args[i].new_array_size = &new_array_size;
+
+        if (pthread_create(&threads[i], NULL, count_occurrences_thread, &thread_args[i]) != 0) {
+            printf("\nThread creation error\n");
+            return NULL;
+        }
+    }
+
+    for (int i = 0; i < num_of_threads; i++) {
+        pthread_join(threads[i], NULL);
+    }
+
+    return new_array;
+}
+
 void NaiveApproach(){
 
     Node *array = (Node*)malloc(ARRAY_SIZE * sizeof(Node));
@@ -109,7 +170,8 @@ void NaiveApproach(){
 
     fclose(file);
 }
-void Multiprocessing(){
+
+int Multiprocessing(){
     int num_of_process;
     printf("\nChoose number of processes ( 2, 4, 6, 8) -> ");
     scanf("%d",&num_of_process);
@@ -201,9 +263,70 @@ void Multiprocessing(){
     munmap(final_array, UNIQUE_ARRAY_SIZE * sizeof(Node));
     free(array);
 
+    return 0;
+
 }
-void Multithreading(){
-// printf("hey");
+int Multithreading(){
+
+    int num_of_threads;
+    printf("\nChoose number of threads ( 2, 4, 6, 8) -> ");
+    scanf("%d",&num_of_threads);
+
+    struct timeval start, end;
+    double elapsedTime;
+
+    pthread_mutex_init(&lock, NULL);
+
+
+    Node *array = (Node *)malloc(ARRAY_SIZE * sizeof(Node));
+    if (array == NULL) {
+        printf("\nNot enough memory\n");
+        return 1;
+    }
+
+    FILE *file = fopen("text.txt", "r");
+    if (file == NULL) {
+        printf("Error opening file\n");
+        return 1;
+    }
+
+    gettimeofday(&start, NULL);
+
+    char word[MAX_WORD_LENGTH];
+    int i = 0;
+    while (fscanf(file, "%99s", word) == 1 && i < ARRAY_SIZE) {
+        strcpy(array[i].word, word);
+        array[i].occurrences = 1;
+        i++;
+    }
+
+    Node *new_array = count_occurrences_multithreading(array, num_of_threads);
+
+    for (int i = 0; i < 10; i++) {
+        int max = 0;
+        int index = 0;
+        for (int j = 0; j < UNIQUE_ARRAY_SIZE; j++) {
+            if (max < new_array[j].occurrences) {
+                max = new_array[j].occurrences;
+                index = j;
+            }
+        }
+        printf("%d- %s (%d)\n", i + 1, new_array[index].word, new_array[index].occurrences);
+        new_array[index].occurrences = -1;
+    }
+
+    gettimeofday(&end, NULL);
+
+    elapsedTime = (end.tv_sec - start.tv_sec) * 1000000.0;
+    elapsedTime += (end.tv_usec - start.tv_usec);         
+    printf("\nTime taken: %f seconds\n", elapsedTime / 1000000.0);
+
+    pthread_mutex_destroy(&lock);
+    fclose(file);
+    free(array);
+    free(new_array);
+    return 0;
+
 }
 
 void printMenu (){
