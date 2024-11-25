@@ -146,7 +146,7 @@ void NaiveApproach(){
         array[i].occurrences = 1;
         i++;
     }
-
+    printf("\nCalculating ..\n");
     Node *new_array = count_occurrences_naive(array);
 
     
@@ -159,13 +159,13 @@ void NaiveApproach(){
                 index = j;
             }
         }
-        printf("%d- %s (%d)\n",i,new_array[index].word,new_array[index].occurrences);
+        printf("%d- %s (%d)\n",i+1,new_array[index].word,new_array[index].occurrences);
         new_array[index].occurrences = -1;
     }
 
     clock_t end_time = clock();
     double elapsed_time = ((double)(end_time - start_time)) / CLOCKS_PER_SEC;
-    printf("Elapsed time: %.6f seconds\n", elapsed_time);
+    printf("Time taken: %.6f seconds\n", elapsed_time);
     
 
     fclose(file);
@@ -173,7 +173,8 @@ void NaiveApproach(){
 
 int Multiprocessing(){
     int num_of_process;
-    printf("\nChoose number of processes ( 2, 4, 6, 8) -> ");
+    printf("\nChoose number of processes ( 2, 4, 6, 8 ) -> ");
+    printf("\nCalculating ..\n");
     scanf("%d",&num_of_process);
 
     struct timeval start, end;
@@ -269,8 +270,9 @@ int Multiprocessing(){
 int Multithreading(){
 
     int num_of_threads;
-    printf("\nChoose number of threads ( 2, 4, 6, 8) -> ");
+    printf("\nChoose number of threads ( 2, 4, 6, 8 ) -> ");
     scanf("%d",&num_of_threads);
+    printf("\nCalculating ..\n");
 
     struct timeval start, end;
     double elapsedTime;
